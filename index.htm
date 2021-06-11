@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>NMR PeakFinder</title>
+    <link href="favicon.ico" rel="shortcut icon" type="image/x-icon"/>
+    <link rel="bookmark" href="favicon.ico" type="image/x-icon"/>
+    <script type="text/javascript" src="jquery.js"></script>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <script type="text/javascript" src="bootstrap.min.js"></script>
+    <script type="text/javascript" src="H_NMR.js"></script>
+    <script type="text/javascript" src="C_NMR.js"></script>
+    <script type="text/javascript">
+        function queryNMR(e) {
+            clearpage();
+            var spec_data = {};
+            $(e).serializeArray().forEach(function (item) {
+                spec_data[item.name] = item.value;
+            });
+            var result = [];
+            var obj = eval(spec_data.spec_type + "_NMR");
+            var nucleus = {'H': 'Proton', 'C': 'Carbon'}[spec_data.spec_type];
+            obj.forEach(function (item) {
+                if (item[spec_data.solvent] == null) return;
+                if (Math.abs(item[spec_data.solvent] - spec_data.chem_shift) <= spec_data.threshold)
+                    result.push(item);
+            });
+            while (result.length != 0) {
+                var pop_item = result[0];
+                obj.forEach(function (item) {
+                    if (item[spec_data.solvent] == null) return;
+                    if (item.compound == pop_item.compound) {
+                        var idx = result.indexOf(item);
+                        $("#result tbody").append("<tr" + (idx == -1 ? '' : ' class="success"') + ">" +
+                            "<td>" + item.compound + "</td>" +
+                            "<td>" + item[nucleus.toLowerCase()] + "</td>" +
+                            "<td class='mult'>" + ('mult' in item ? item.mult : '') + "</td>" +
+                            "<td>" + item.json[spec_data.solvent] + "</td>" +
+                            "</tr>");
+                        if (idx != -1) {
+                            result.splice(idx, 1);
+                        }
+                    }
+                });
+            }
+            if (!('mult' in obj[0])) {
+                $(".mult").hide();
+            }
+            $("#nucleus").text(nucleus);
+            $("#disp_solvent").text($("#solvent").find("option:selected").text());
+            $("#result").show();
+            window.location.href = "#result";
+            return false;
+        }
+
+        function showhelp() {
+            alert("For example, if you want to seek peaks at 50.00±0.10 ppm, set 'Chemical Shift' to 50.00 " +
+                "and 'Threshold' to 0.10, click 'Query' to display results.\n\n" +
+                "The result will be shown in a table, green-colored rows are the peaks you need, but other peaks" +
+                " in relevant compounds will be displayed as well without special color.\n\n" +
+                "If you can't find any peaks, try to adjust the threshold to larger value.");
+        }
+
+        function clearpage() {
+            $("#result").hide();
+            $(".mult").show();
+            $("#result tbody").empty();
+        }
+    </script>
+    <style>
+        html, body {
+            margin: 0 auto;
+            padding: 0;
+            min-width: 800px;
+            /*min-height: 600px;*/
+            background-color: rgba(230,230,250,0.1);
+        }
+
+        #dlgbox {
+            margin: 5% auto 5%;
+            padding: 2% 5%;
+            width: 460px;
+        }
+
+        .input_label {
+            width: 120px;
+        }
+
+        #chem_shift, #threshold {
+            width: 100px;
+        }
+
+        .input_group {
+            padding: 5px 0;
+            vertical-align: middle;
+        }
+
+        form {
+            vertical-align: middle;
+        }
+
+        .btn-group {
+            margin: 5px auto;
+        }
+
+        .btn {
+            width: 70px;
+        }
+
+        #result {
+            display: none;
+        }
+        
+        .footer{
+            margin: 50px auto;
+        }
+    </style>
+</head>
+<body class="container">
+<div class="jumbotron" id="dlgbox">
+    <h2 class="text-center">NMR PeakFinder</h2>
+    <form id="spec_info" onsubmit="return queryNMR(this)">
+        <div class="input_group">
+            <label class="input_label" for="spec_type">
+                Spectrum:
+            </label>
+            <select id="spec_type" name="spec_type" required="required">
+                <option value="H">¹H-NMR</option>
+                <option value="C">¹³C-NMR</option>
+            </select>
+        </div>
+        <div class="input_group">
+            <label class="input_label" for="solvent">
+                Solvent:
+            </label>
+            <select id="solvent" name="solvent" required="required">
+                <option value="chloroform_d">CDCl₃(chloroform-d)</option>
+                <option value="acetone_d6">(CD₃)₂CO(acetone-d₆)</option>
+                <option value="dmso_d6">(CD₃)₂SO(dmso-d₆)</option>
+                <option value="benzene_d6">C₆D₆(benzene-d₆)</option>
+                <option value="acetonitrile_d3">CD₃CN(acetonitrile-d₃)</option>
+                <option value="methanol_d4">CD₃OD(methanol-d₄)</option>
+                <option value="water_d2">D₂O(water-d₂)</option>
+            </select>
+        </div>
+        <div class="input_group">
+            <label class="input_label" for="chem_shift">Chemical Shift: </label>
+            <input type="number" id="chem_shift" name="chem_shift" value="0.00" step="0.01" required="required">
+            <span>ppm</span>
+        </div>
+        <div class="input_group">
+            <label class="input_label" for="threshold">Threshold: </label>
+            <input type="number" id="threshold" name="threshold" value="0.10" step="0.01" min="0.00"
+                   required="required">
+            <span>ppm</span>
+        </div>
+        <div class="text-center input_group">
+            <div class="btn-group">
+                <button type="reset" class="btn btn-default" onclick="clearpage()">Reset</button>
+                <button type="submit" class="btn btn-primary">Query</button>
+                <button type="button" class="btn btn-success" onclick="showhelp()">Help</button>
+            </div>
+        </div>
+    </form>
+    <h5 class="text-left">
+        <b>Author:</b> <a href="http://www.wangqixuan.vip">WangQixuan</a>
+    </h5>
+    <h5 class="text-left">
+        <b>Reference: </b><a href="jo971176v.pdf" target="_blank"><i>J. Org. Chem.</i>
+        <b>1997</b>, <i>62</i>(21), 7512–7515</a>
+    </h5>
+    <h5 class="text-left">
+        <b>Download: </b><a href="http://peakfinder.wangqixuan.vip/NMR_PeakFinder.zip"
+            target="_blank">Download Local Verison of PeakFinder</a>
+    </h5>
+</div>
+<table class="table table-hover" id="result">
+    <caption><span id="table_title"></span></caption>
+    <thead>
+    <tr>
+        <th>Compound</th>
+        <th><span id="nucleus">Proton</span></th>
+        <th class="mult">Mult</th>
+        <th><span id="disp_solvent">Water</span></th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+<div class="footer">
+    <hr>
+    <footer>
+        <p class="text-center">© 2021 - WangQixuan, All Rights Reserved</p>
+    </footer>
+</div>
+</body>
+</html>
